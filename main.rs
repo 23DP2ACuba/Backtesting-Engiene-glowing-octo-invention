@@ -2,11 +2,12 @@ mod data_reader;
 mod engn_code;
 mod indicators;
 use csv::Reader;
-use data_reader::data::data::csv_reader;
+use data_reader::data::data::DataFeed;
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
-    csv_reader("BTC-USD.csv")?;
+    let mut df = DataFeed::new();
+    df.csv_reader("BTC-USD.csv")?;
     Ok(())
 }
 
