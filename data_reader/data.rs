@@ -16,7 +16,8 @@ pub mod data {
     });
 
     #[derive(Debug, Deserialize, Clone)]
-    pub struct OHLCV {
+
+    pub struct DataFeed {
         pub Date: Vec<String>,
         pub Open: Vec<f64>,
         pub High: Vec<f64>,
@@ -26,24 +27,19 @@ pub mod data {
         pub Adj_Close: Vec<f64>,
         pub Volume: Vec<u64>,
     }
-
-    pub struct DataFeed {
-        ohlcv: OHLCV,
-    }
     impl DataFeed {
 
         pub fn new() -> Self{
-            DataFeed {
-                ohlcv: OHLCV { 
-                    Date: Vec::new(), 
-                    Open: Vec::new(), 
-                    High: Vec::new(), 
-                    Low: Vec::new(), 
-                    Close: Vec::new(), 
-                    Adj_Close: Vec::new(), 
-                    Volume: Vec::new(),
-                }
-            }
+            let ohlcv = DataFeed {
+                Date: Vec::new(), 
+                Open: Vec::new(), 
+                High: Vec::new(), 
+                Low: Vec::new(), 
+                Close: Vec::new(), 
+                Adj_Close: Vec::new(), 
+                Volume: Vec::new(),
+            };
+            ohlcv
         }
 
         pub fn read_csv(&mut self, filename: &'static str) -> Result<(), Box<dyn std::error::Error>> {
@@ -71,39 +67,39 @@ pub mod data {
             let volume: u64 = line.get(6).unwrap_or_default().to_string().parse().unwrap_or(0);
             
 
-            self.ohlcv.Date.push(date);
-            self.ohlcv.Open.push(open);
-            self.ohlcv.High.push(high);
-            self.ohlcv.Low.push(low);
-            self.ohlcv.Close.push(close);
-            self.ohlcv.Adj_Close.push(adj_close);
-            self.ohlcv.Volume.push(volume); 
+            self.Date.push(date);
+            self.Open.push(open);
+            self.High.push(high);
+            self.Low.push(low);
+            self.Close.push(close);
+            self.Adj_Close.push(adj_close);
+            self.Volume.push(volume); 
             Ok(())
         }
 
         pub fn print_ohlcv(&self, start: String, end: String) -> Result<(), Box<dyn std::error::Error>> {
 
-            let last_date = match self.ohlcv.Date.last(){
+            let last_date = match self.Date.last(){
                 Some(last_val) => last_val,
                 None => &String::new(),
             };
 
             if start < end && end <= *last_date{
-                let mut idx: usize = self.ohlcv.Date.iter().position(|d| *d == start).unwrap() -1;
+                let mut idx: usize = self.Date.iter().position(|d| *d == start).unwrap() -1;
 
-                let mut date = self.ohlcv.Date[idx].clone();
+                let mut date = self.Date[idx].clone();
                 while date != end {
                     idx += 1;
-                    date = self.ohlcv.Date[idx].clone();
+                    date = self.Date[idx].clone();
 
                     println!("{} | {:<12} | {:<12} | {:<12} | {:<12} | {:<12} | {:<12} |", 
                     date, 
-                    self.ohlcv.Open[idx],
-                    self.ohlcv.High[idx], 
-                    self.ohlcv.Low[idx],
-                    self.ohlcv.Adj_Close[idx],
-                    self.ohlcv.Close[idx],
-                    self.ohlcv.Volume[idx],
+                    self.Open[idx],
+                    self.High[idx], 
+                    self.Low[idx],
+                    self.Adj_Close[idx],
+                    self.Close[idx],
+                    self.Volume[idx],
                 );
                 }
                 
@@ -112,8 +108,8 @@ pub mod data {
             Ok(())
         }
 
-        pub fn get_ohlcv(&self) -> OHLCV {
-            self.ohlcv.clone()
+        pub fn get_ohlcv(&self) -> DataFeed {
+            self.clone()
         }
 
         pub fn clear_ohclv(&self) -> Result<(), Box<dyn std::error::Error>> {
@@ -122,7 +118,7 @@ pub mod data {
         }
 
         pub fn get_size(&self) -> Result<i32, Box<dyn std::error::Error>> {
-            Ok(self.ohlcv.Date.len().try_into().unwrap())
+            Ok(self.Date.len().try_into().unwrap())
         }
 
     }
