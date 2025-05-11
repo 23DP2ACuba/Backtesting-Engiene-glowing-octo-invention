@@ -1,6 +1,3 @@
-// pub fn process_data(){
-//     println!("processed sata");
-// }
 
 pub mod data {
     #![allow(dead_code)]
@@ -16,7 +13,6 @@ pub mod data {
     });
 
     #[derive(Debug, Deserialize, Clone)]
-
     pub struct DataFeed {
         pub Date: Vec<String>,
         pub Open: Vec<f64>,
@@ -29,7 +25,7 @@ pub mod data {
     }
     impl DataFeed {
 
-        pub fn new() -> Self{
+        pub fn new() -> Self {
             let ohlcv = DataFeed {
                 Date: Vec::new(), 
                 Open: Vec::new(), 
@@ -42,7 +38,7 @@ pub mod data {
             ohlcv
         }
 
-        pub fn read_csv(&mut self, filename: &'static str) -> Result<(), Box<dyn std::error::Error>> {
+        pub fn read_csv(&mut self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
             let mut reader = Reader::from_path(filename)?;
             
             let header = reader.headers()?;
@@ -56,17 +52,15 @@ pub mod data {
             Ok(())
         }
         
-
-        fn parse_line(&mut self, line: csv::StringRecord) -> Result<(), Box<dyn std::error::Error>>{
-            let date = line.get(0).unwrap_or_default().to_string();
-            let open: f64 = line.get(1).unwrap_or_default().to_string().parse().unwrap_or(0.0);
-            let high: f64 = line.get(2).unwrap_or_default().to_string().parse().unwrap_or(0.0);
-            let low: f64 = line.get(3).unwrap_or_default().to_string().parse().unwrap_or(0.0);
-            let close: f64 = line.get(4).unwrap_or_default().to_string().parse().unwrap_or(0.0);
-            let adj_close: f64 = line.get(5).unwrap_or_default().to_string().parse().unwrap_or(0.0);
-            let volume: u64 = line.get(6).unwrap_or_default().to_string().parse().unwrap_or(0);
+        fn parse_line(&mut self, line: csv::StringRecord) -> Result<(), Box<dyn std::error::Error>> {
+            let date = line.get(0).ok_or("Missing Date")?.to_string();
+            let open: f64 = line.get(1).ok_or("Missing Open")?.parse()?;
+            let high: f64 = line.get(2).ok_or("Missing High")?.parse()?;
+            let low: f64 = line.get(3).ok_or("Missing Low")?.parse()?;
+            let close: f64 = line.get(4).ok_or("Missing Close")?.parse()?;
+            let adj_close: f64 = line.get(5).ok_or("Missing Adj Close")?.parse()?;
+            let volume: u64 = line.get(6).ok_or("Missing Volume")?.parse()?;
             
-
             self.Date.push(date);
             self.Open.push(open);
             self.High.push(high);
@@ -78,33 +72,23 @@ pub mod data {
         }
 
         pub fn print_ohlcv(&self, start: String, end: String) -> Result<(), Box<dyn std::error::Error>> {
-
-            let last_date = match self.Date.last(){
-                Some(last_val) => last_val,
-                None => &String::new(),
-            };
-
-            if start < end && end <= *last_date{
-                let mut idx: usize = self.Date.iter().position(|d| *d == start).unwrap() -1;
-
-                let mut date = self.Date[idx].clone();
-                while date != end {
-                    idx += 1;
-                    date = self.Date[idx].clone();
-
-                    println!("{} | {:<12} | {:<12} | {:<12} | {:<12} | {:<12} | {:<12} |", 
-                    date, 
+            let start_idx = self.Date.iter().position(|d| *d == start).ok_or("Start date not found")?;
+            let end_idx = self.Date.iter().position(|d| *d == end).ok_or("End date not found")?;
+            if start_idx > end_idx {
+                return Err("Start date must be before end date".into());
+            }
+            for idx in start_idx..=end_idx {
+                println!(
+                    "{} | {:<12} | {:<12} | {:<12} | {:<12} | {:<12} | {:<12} |",
+                    self.Date[idx],
                     self.Open[idx],
-                    self.High[idx], 
+                    self.High[idx],
                     self.Low[idx],
                     self.Adj_Close[idx],
                     self.Close[idx],
                     self.Volume[idx],
                 );
-                }
-                
             }
-
             Ok(())
         }
 
@@ -112,16 +96,13 @@ pub mod data {
             self.clone()
         }
 
-        pub fn clear_ohclv(&self) -> Result<(), Box<dyn std::error::Error>> {
-            DataFeed::new();
+        pub fn clear_ohclv(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+            *self = DataFeed::new();
             Ok(())
         }
 
         pub fn get_size(&self) -> Result<i32, Box<dyn std::error::Error>> {
             Ok(self.Date.len().try_into().unwrap())
         }
-
     }
-
-    
 }

@@ -3,11 +3,15 @@ pub struct Indicators {
     pub ohlcv: DataFeed,
 } 
 impl Indicators {
+    
     pub fn SMA(&mut self, period: i64) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
-        let mut sma = vec![0.0; self.ohlcv.get_ohlcv().Date.len()];
         let data = &self.ohlcv.get_ohlcv().Close;
+        if period as usize > data.len() {
+            return Err("Period exceeds data length".into());
+        }
+        let mut sma = vec![0.0; self.ohlcv.get_ohlcv().Date.len()];
         let mut sum = 0.0;
-        for i in 0..period{
+        for i in 0..period {
             sum += data[i as usize];
         }
         sma[(period - 1) as usize] = sum / period as f64;
@@ -15,32 +19,32 @@ impl Indicators {
         for i in period..data.len() as i64 {
             sum -= data[(i-period) as usize];
             sum += data[i as usize];
-            sma[i as usize] = sum /period as f64;
+            sma[i as usize] = sum / period as f64;
         }
 
         Ok(sma)
     }
 
     pub fn EMA(&mut self, period: i64) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
-        let mut ema = vec![0.0; self.ohlcv.get_ohlcv().Date.len()];
         let data = &self.ohlcv.get_ohlcv().Close;
+        if period as usize > data.len() {
+            return Err("Period exceeds data length".into());
+        }
+        let mut ema = vec![0.0; self.ohlcv.get_ohlcv().Date.len()];
 
         let mut sum = 0.0;
-
-        for i  in 0..period {
+        for i in 0..period {
             sum += data[i as usize];
         }
 
         ema[(period - 1) as usize] = sum / period as f64;
 
-        for i in period..data.len() as i64{
+        for i in period..data.len() as i64 {
             let i = i as usize;
-            ema[i] = (data[i] * (2 / (period + 1)) as f64) + (ema[i - 1] * (1 - (2 / (period + 1))) as f64);
+            ema[i] = (data[i] * (2.0 / (period + 1) as f64)) + (ema[i - 1] * (1.0 - (2.0 / (period + 1) as f64)));
         }
         Ok(ema)
-    
     }
-
 
     fn _MACD(&mut self, fast: i64, slow: i64) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
         let ohlcv = self.ohlcv.get_ohlcv();
@@ -88,21 +92,26 @@ impl Indicators {
         Ok(ema)
     }
 
-    pub fn MACD(&mut self, period: i64, fast: i64, slow: i64)  -> Result<(Vec<f64>, Vec<f64>), Box<dyn std::error::Error>> {
+    pub fn MACD(&mut self, period: i64, fast: i64, slow: i64) -> Result<(Vec<f64>, Vec<f64>), Box<dyn std::error::Error>> {
         let macd = self._MACD(fast, slow)?;
         let signal = self._SIGNAL(period, fast, slow)?;
         Ok((macd, signal))
     }
 
-    pub fn ATD(&mut self, period:i64) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+    pub fn ATR(&mut self, period: i64) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
         let mut atr = vec![0.0; self.ohlcv.get_ohlcv().Date.len()];
         let data = self.ohlcv.get_ohlcv().Close;
         let mut tr = 0f64;
-        for i in period..data.len() as i64{
-            tr = f64::max(data[i as usize] - data[(i - 1) as usize], f64::max(data[i as usize] - self.ohlcv.get_ohlcv().High[(i - 1) as usize], self.ohlcv.get_ohlcv().Low[(i - 1) as usize] - data[i as usize]));
-            atr[i as usize ] = (atr[(i - 1) as usize] * (period - 1) as f64 + tr) / period as f64;
+        for i in period..data.len() as i64 {
+            tr = f64::max(
+                data[i as usize] - data[(i - 1) as usize],
+                f64::max(
+                    data[i as usize] - self.ohlcv.get_ohlcv().High[(i - 1) as usize],
+                    self.ohlcv.get_ohlcv().Low[(i - 1) as usize] - data[i as usize]
+                )
+            );
+            atr[i as usize] = (atr[(i - 1) as usize] * (period - 1) as f64 + tr) / period as f64;
         }
-
         Ok(atr)
     }
 
@@ -122,10 +131,11 @@ impl Indicators {
         }
     
         for i in 0..data.len() {
-            if stddev[i] != 0.0 {
-                bbands[i] = (data[i] - sma[i]) / (2.0 * stddev[i]);
+            if stddev[i] == 0.0 {
+                println!("Warning: Standard deviation is zero at index {}, setting BBANDS to 0.0", i);
+                bbands[i] = 0.0;
             } else {
-                bbands[i] = 0.0; 
+                bbands[i] = (data[i] - sma[i]) / (2.0 * stddev[i]);
             }
         }
     
@@ -134,22 +144,29 @@ impl Indicators {
 
     pub fn STOCHASTIC(&mut self, period: i64) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
         let data = self.ohlcv.get_ohlcv().Close;
+        let high = &self.ohlcv.get_ohlcv().High;
+        let low = &self.ohlcv.get_ohlcv().Low;
         let mut stochastic = vec![0.0; self.ohlcv.get_ohlcv().Date.len()];
-        let mut min = 0f64;
-        let mut max = 0f64;
+        let mut min = 0.0;
+        let mut max = 0.0;
         
         for i in period..data.len() as i64 {
-            min = data[(i-period) as usize];
-            max = data[(i-period) as usize];
+            min = low[(i-period) as usize];
+            max = high[(i-period) as usize];
 
             for j in (i-period)..i {
-                if data[j as usize] < min {
-                    min = data[j as usize];
-                } else if data[j as usize] > max {
-                    max = data[j as usize];
+                if low[j as usize] < min {
+                    min = low[j as usize];
+                }
+                if high[j as usize] > max {
+                    max = high[j as usize];
                 }
             }
-            stochastic[i as usize] = (data[i as usize] - min) / (max - min);
+            stochastic[i as usize] = if max != min {
+                (data[i as usize] - min) / (max - min) * 100.0
+            } else {
+                0.0
+            };
         }
         Ok(stochastic)
     }
@@ -171,9 +188,12 @@ impl Indicators {
                     max = data[j as usize];
                 }
             }
-            williams[i as usize] = (max - data[i as usize]) / (max - min);
+            williams[i as usize] = if max != min {
+                (max - data[i as usize]) / (max - min)
+            } else {
+                0.0
+            };
         }
         Ok(williams)
     }
-
 }
