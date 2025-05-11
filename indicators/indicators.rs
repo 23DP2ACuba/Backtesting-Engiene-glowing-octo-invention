@@ -76,19 +76,17 @@ impl Indicators {
         if data.len() < period as usize {
             return Err("Not enough data to compute EMA".into());
         }
-    
-        let mut ema = Vec::with_capacity(data.len());
+        let mut ema = vec![0.0; data.len()];
         let k = 2.0 / (period as f64 + 1.0);
-    
-        let mut prev_ema = data[0];
-        ema.push(prev_ema);
-    
-        for i in 1..data.len() {
-            let current = data[i];
-            prev_ema = current * k + prev_ema * (1.0 - k);
-            ema.push(prev_ema);
+        
+        // SMA for initial EMA value
+        let sma: f64 = data[..period as usize].iter().sum::<f64>() / period as f64;
+        ema[period as usize - 1] = sma;
+        
+        for i in period as usize..data.len() {
+            ema[i] = (data[i] - ema[i - 1]) * k + ema[i - 1];
         }
-    
+        
         Ok(ema)
     }
 
@@ -98,22 +96,40 @@ impl Indicators {
         Ok((macd, signal))
     }
 
-    pub fn ATR(&mut self, period: i64) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
-        let mut atr = vec![0.0; self.ohlcv.get_ohlcv().Date.len()];
-        let data = self.ohlcv.get_ohlcv().Close;
-        let mut tr = 0f64;
-        for i in period..data.len() as i64 {
-            tr = f64::max(
-                data[i as usize] - data[(i - 1) as usize],
-                f64::max(
-                    data[i as usize] - self.ohlcv.get_ohlcv().High[(i - 1) as usize],
-                    self.ohlcv.get_ohlcv().Low[(i - 1) as usize] - data[i as usize]
-                )
-            );
-            atr[i as usize] = (atr[(i - 1) as usize] * (period - 1) as f64 + tr) / period as f64;
-        }
-        Ok(atr)
+pub fn ATR(&mut self, period: i64) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+    let ohlcv = self.ohlcv.get_ohlcv();
+    let close = &ohlcv.Close;
+    let high = &ohlcv.High;
+    let low = &ohlcv.Low;
+    let len = close.len();
+    let mut atr = vec![0.0; len];
+    
+    let mut tr = vec![0.0; len];
+    for i in 1..len {
+        let prev_close = close[i - 1];
+        tr[i] = f64::max(
+            high[i] - low[i],
+            f64::max(
+                high[i] - prev_close,
+                prev_close - low[i]
+            )
+        );
     }
+    
+    let mut sum = 0.0;
+    for i in 1..=period as usize {
+        sum += tr[i];
+        if i == period as usize {
+            atr[i] = sum / period as f64;
+        }
+    }
+    
+    for i in (period as usize + 1)..len {
+        atr[i] = (atr[i - 1] * (period as f64 - 1.0) + tr[i]) / period as f64;
+    }
+    
+    Ok(atr)
+}
 
     pub fn BBANDS(&mut self, period: i64) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
         let data = self.ohlcv.get_ohlcv().Close;

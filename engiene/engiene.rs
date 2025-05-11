@@ -30,6 +30,9 @@ pub mod backtest {
         pub long_quantity: f64,
         pub short_quantity: f64,
         pub sizer: f64,
+        pub long_entry_price: f64,
+        pub short_entry_price: f64,
+
     }
 
 
@@ -52,6 +55,8 @@ pub mod backtest {
                 sizer: 0.0,
                 slippage: 0.0,
                 total_slippage: 0.0,
+                long_entry_price: 0.0,
+                short_entry_price: 0.0,
             }
         }
 
@@ -111,31 +116,24 @@ pub mod backtest {
             if quantity <= 0.0 || price <= 0.0 {
                 return Err("Invalid quantity or price".into());
             }
-            let comm = self.calculate_comm(price, quantity)?;
-            let _slip = self.calculate_slippage(price, quantity); 
             let adjusted_price = price * (1.0 + self.slippage);
-
+            let comm = self.calculate_comm(adjusted_price, quantity)?;
+            let slip = self.calculate_slippage(adjusted_price, quantity);
+            
             if !self.position {
                 self.is_long = true;
                 self.position = true;
                 self.long_quantity = quantity;
-                self.balance -= adjusted_price * quantity + comm;
+                self.long_entry_price = adjusted_price;
+                self.balance -= adjusted_price * quantity + comm + slip;
             } else if self.is_long {
+                let total_cost = self.long_entry_price * self.long_quantity + adjusted_price * quantity;
                 self.long_quantity += quantity;
-                self.balance -= adjusted_price * quantity + comm;
-            } else if self.is_short && quantity > self.short_quantity {
-                self.is_short = false;
-                self.is_long = true;
-                self.long_quantity = quantity - self.short_quantity;
-                self.short_quantity = 0.0;
-                self.balance -= adjusted_price * quantity + comm;
-            } else if self.is_short && quantity <= self.short_quantity {
-                self.short_quantity -= quantity;
-                self.balance += adjusted_price * quantity - comm;
-                if self.short_quantity <= 0.0 {
-                    self.is_short = false;
-                    self.position = false;
-                }
+                self.long_entry_price = total_cost / self.long_quantity;
+                self.balance -= adjusted_price * quantity + comm + slip;
+            } else if self.is_short {
+                let short_pnl = (self.short_entry_price - adjusted_price) * self.short_quantity;
+                self.balance += short_pnl - comm - slip;
             }
 
             self.log(format!("BUY {}, {}, {}", date, adjusted_price, quantity));
@@ -200,7 +198,7 @@ pub mod backtest {
             } else if self.is_short {
                 let close_quantity = quantity.min(self.short_quantity);
                 self.short_quantity -= close_quantity;
-                self.balance += adjusted_price * close_quantity - comm;
+                self.balance -= adjusted_price * close_quantity - comm;
                 if self.short_quantity <= 0.0 {
                     self.is_short = false;
                     self.position = false;
