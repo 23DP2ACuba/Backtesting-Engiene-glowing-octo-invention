@@ -11,7 +11,7 @@ use crate::strategy::strategy::Strategy;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut data_feed = DataFeed::new();
-    let csv_file = "MSFT.csv"; // Replace with actual CSV file path
+    let csv_file = "BTC-USD.csv"; // Replace with actual CSV file path
     data_feed.read_csv(csv_file)?;
     
     // Print sample OHLCV data for verification

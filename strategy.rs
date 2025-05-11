@@ -1,5 +1,4 @@
-// Fixed closing logic to use actual position quantities
-// Retained previous fixes: dynamic quantities, error handling, run/stats methods
+
 pub mod strategy {
     use crate::Indicators;
     use crate::{Backtest, Prams};
